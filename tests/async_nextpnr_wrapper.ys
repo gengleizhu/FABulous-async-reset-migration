@@ -1,0 +1,5 @@
+read_verilog -lib -D COMPLEX_DFF /home/zyzhao/FABulous/zgl-64x64_async/Test/yosys-0.68-maps/prims.v
+read_verilog -lib /home/zyzhao/FABulous/zgl-64x64_async/user_design/custom_prims.v
+read_verilog /tmp/async_nextpnr_wrapper.v
+hierarchy -check -top top_wrapper
+write_json /tmp/async_nextpnr_wrapper.json

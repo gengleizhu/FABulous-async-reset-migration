@@ -1,0 +1,55 @@
+--- /home/zyzhao/FABulous/zgl-64x64_async/change_records/async-reset-v2-20260920/original/Tile/LUT4AB/LUT4c_frame_config_dffesr.v	2026-07-22 17:19:27.221271000 +0900
++++ /home/zyzhao/FABulous/zgl-64x64_async/Tile/LUT4AB/LUT4c_frame_config_dffesr.v	2026-09-20 15:44:38.694123133 +0900
+@@ -34,10 +34,11 @@
+     INIT_15=15,
+     FF=16,
+     IOmux=17,
+-    SET_NORESET=18
++    SET_NORESET=18,
++    ASYNC_SR=19
+ *)
+ module LUT4c_frame_config_dffesr #(
+-    parameter integer NoConfigBits = 19
++    parameter integer NoConfigBits = 20
+ ) (
+     // ConfigBits has to be adjusted manually (we don't use an arithmetic parser for the value)
+     input [3:0] I,  // Vector for I0, I1, I2, I3
+@@ -57,12 +58,21 @@
+     wire LUT_out;
+     reg LUT_flop;
+     wire I0mux;  // '0': use the normal input, '1': use the carry input
+-    wire c_out_mux, c_I0mux, c_reset_value;
++    wire c_out_mux, c_I0mux, c_reset_value, c_async_sr;
++    wire sync_sr, async_clear, async_set, LUT_flop_d;
+ 
+     assign LUT_values = ConfigBits[15:0];
+     assign c_out_mux = ConfigBits[16];
+     assign c_I0mux = ConfigBits[17];
+     assign c_reset_value = ConfigBits[18];
++    assign c_async_sr = ConfigBits[19];
++
++    // Synchronous set/reset remains enable-first, matching LUTFF_ESR/LUTFF_ESS.
++    // Asynchronous clear/set always overrides EN.
++    assign sync_sr = SR & ~c_async_sr;
++    assign async_clear = SR & c_async_sr & ~c_reset_value;
++    assign async_set = SR & c_async_sr & c_reset_value;
++    assign LUT_flop_d = EN ? (sync_sr ? c_reset_value : LUT_out) : LUT_flop;
+ 
+     cus_mux21 cus_mux21_I0mux (
+         .A0(I[0]),
+@@ -112,11 +122,10 @@
+     // iCE40 like carry chain (as this is supported in Yosys; would normally go for fractured LUT)
+     assign Co = (Ci & I[1]) | (Ci & I[2]) | (I[1] & I[2]);
+ 
+-    always @(posedge UserCLK) begin
+-        if (EN) begin
+-            if (SR) LUT_flop <= c_reset_value;
+-            else LUT_flop <= LUT_out;
+-        end
++    always @(posedge UserCLK or posedge async_clear or posedge async_set) begin
++        if (async_clear) LUT_flop <= 1'b0;
++        else if (async_set) LUT_flop <= 1'b1;
++        else LUT_flop <= LUT_flop_d;
+     end
+ 
+ endmodule

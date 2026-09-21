@@ -1,0 +1,139 @@
+--- a/Tile/LUT4AB/LUT4c_frame_config_dffesr.v
++++ b/Tile/LUT4AB/LUT4c_frame_config_dffesr.v
+@@ -34,10 +34,11 @@
+     INIT_15=15,
+     FF=16,
+     IOmux=17,
+-    SET_NORESET=18
++    SET_NORESET=18,
++    ASYNC_SR=19
+ *)
+ module LUT4c_frame_config_dffesr #(
+-    parameter integer NoConfigBits = 19
++    parameter integer NoConfigBits = 20
+ ) (
+     // ConfigBits has to be adjusted manually (we don't use an arithmetic parser for the value)
+     input [3:0] I,  // Vector for I0, I1, I2, I3
+@@ -57,12 +58,21 @@
+     wire LUT_out;
+     reg LUT_flop;
+     wire I0mux;  // '0': use the normal input, '1': use the carry input
+-    wire c_out_mux, c_I0mux, c_reset_value;
++    wire c_out_mux, c_I0mux, c_reset_value, c_async_sr;
++    wire sync_sr, async_clear, async_set, LUT_flop_d;
+ 
+     assign LUT_values = ConfigBits[15:0];
+     assign c_out_mux = ConfigBits[16];
+     assign c_I0mux = ConfigBits[17];
+     assign c_reset_value = ConfigBits[18];
++    assign c_async_sr = ConfigBits[19];
++
++    // Synchronous set/reset remains enable-first, matching LUTFF_ESR/LUTFF_ESS.
++    // Asynchronous clear/set always overrides EN.
++    assign sync_sr = SR & ~c_async_sr;
++    assign async_clear = SR & c_async_sr & ~c_reset_value;
++    assign async_set = SR & c_async_sr & c_reset_value;
++    assign LUT_flop_d = EN ? (sync_sr ? c_reset_value : LUT_out) : LUT_flop;
+ 
+     cus_mux21 cus_mux21_I0mux (
+         .A0(I[0]),
+@@ -112,11 +122,10 @@
+     // iCE40 like carry chain (as this is supported in Yosys; would normally go for fractured LUT)
+     assign Co = (Ci & I[1]) | (Ci & I[2]) | (I[1] & I[2]);
+ 
+-    always @(posedge UserCLK) begin
+-        if (EN) begin
+-            if (SR) LUT_flop <= c_reset_value;
+-            else LUT_flop <= LUT_out;
+-        end
++    always @(posedge UserCLK or posedge async_clear or posedge async_set) begin
++        if (async_clear) LUT_flop <= 1'b0;
++        else if (async_set) LUT_flop <= 1'b1;
++        else LUT_flop <= LUT_flop_d;
+     end
+ 
+ endmodule
+--- a/Test/yosys-0.68-maps/ff_map.v
++++ b/Test/yosys-0.68-maps/ff_map.v
+@@ -7,3 +7,11 @@
+ 
+ module  \$_SDFFCE_PP0P_ (input D, C, E, R, output Q); LUTFF_ESR  _TECHMAP_REPLACE_ (.D(D), .O(Q), .CLK(C), .E(E), .R(R)); endmodule
+ module  \$_SDFFCE_PP1P_ (input D, C, E, R, output Q); LUTFF_ESS  _TECHMAP_REPLACE_ (.D(D), .O(Q), .CLK(C), .E(E), .S(R)); endmodule
++
++// Positive-edge DFFs with active-high asynchronous clear/preset.
++module  \$_DFF_PP0_ (input D, C, R, output Q); LUTFF_AR  _TECHMAP_REPLACE_ (.D(D), .O(Q), .CLK(C), .R(R)); endmodule
++module  \$_DFF_PP1_ (input D, C, R, output Q); LUTFF_AS  _TECHMAP_REPLACE_ (.D(D), .O(Q), .CLK(C), .S(R)); endmodule
++
++// Enable is synchronous; asynchronous clear/preset always has priority over E.
++module  \$_DFFE_PP0P_ (input D, C, E, R, output Q); LUTFF_EAR  _TECHMAP_REPLACE_ (.D(D), .O(Q), .CLK(C), .E(E), .R(R)); endmodule
++module  \$_DFFE_PP1P_ (input D, C, E, R, output Q); LUTFF_EAS  _TECHMAP_REPLACE_ (.D(D), .O(Q), .CLK(C), .E(E), .S(R)); endmodule
+--- a/Test/yosys-0.68-maps/prims.v
++++ b/Test/yosys-0.68-maps/prims.v
+@@ -484,4 +484,52 @@
+         O <= D;
+     end
+ endmodule
++
++module LUTFF_AR (
++  output reg O,
++  input CLK, R, D
++);
++  initial O = 1'b0;
++  always @(posedge CLK or posedge R)
++    if (R)
++      O <= 1'b0;
++    else
++      O <= D;
++endmodule
++
++module LUTFF_AS (
++  output reg O,
++  input CLK, S, D
++);
++  initial O = 1'b0;
++  always @(posedge CLK or posedge S)
++    if (S)
++      O <= 1'b1;
++    else
++      O <= D;
++endmodule
++
++module LUTFF_EAR (
++  output reg O,
++  input CLK, E, R, D
++);
++  initial O = 1'b0;
++  always @(posedge CLK or posedge R)
++    if (R)
++      O <= 1'b0;
++    else if (E)
++      O <= D;
++endmodule
++
++module LUTFF_EAS (
++  output reg O,
++  input CLK, E, S, D
++);
++  initial O = 1'b0;
++  always @(posedge CLK or posedge S)
++    if (S)
++      O <= 1'b1;
++    else if (E)
++      O <= D;
++endmodule
+ `endif // COMPLEX_DFF
+--- a/Test/build_picorv32.sh
++++ b/Test/build_picorv32.sh
+@@ -3,10 +3,10 @@
+ export PATH=/nix/store/9ysyys63a84rasqkdzdsjjha1fyr9ads-FABulous-env/bin:/home/zyzhao/miniforge3/envs/fabulous/bin:/usr/bin:/bin
+ export PYTHONPATH=/home/zyzhao/FABulous
+ unset LD_LIBRARY_PATH PYTHONHOME
+-cd /home/zyzhao/FABulous/zgl-64x64/Test
++cd /home/zyzhao/FABulous/zgl-64x64_async/Test
+ export PICORV_LOG_DIR="logs/picorv32/run-$(date +%Y%m%d-%H%M%S)"
+ mkdir -p "$PICORV_LOG_DIR"
+-SYNTH_ARGS='-extra-plib yosys-0.68-maps/prims.v -cells-map yosys-0.68-maps/cells_map.v -extra-map yosys-0.68-maps/ff_map.v -extra-map yosys-0.68-maps/io_map.v -extra-mlibmap yosys-0.68-maps/ram_regfile.txt -extra-map yosys-0.68-maps/regfile_map.v -ff \$_DFF_P_ 0 -multiplier-map yosys-0.68-maps/mul_map.v 8 8 1 1 1'
++SYNTH_ARGS='-extra-plib yosys-0.68-maps/prims.v -cells-map yosys-0.68-maps/cells_map.v -extra-map yosys-0.68-maps/ff_map.v -extra-map yosys-0.68-maps/io_map.v -extra-mlibmap yosys-0.68-maps/ram_regfile.txt -extra-map yosys-0.68-maps/regfile_map.v -ff \$_DFF_P_ 0 -ff \$_DFFE_PP_ 0 -ff \$_SDFF_PP0_ 0 -ff \$_SDFF_PP1_ 0 -ff \$_SDFFCE_PP0P_ 0 -ff \$_SDFFCE_PP1P_ 0 -ff \$_DFF_PP0_ 0 -ff \$_DFF_PP1_ 0 -ff \$_DFFE_PP0P_ 0 -ff \$_DFFE_PP1P_ 0 -multiplier-map yosys-0.68-maps/mul_map.v 8 8 1 1 1'
+ task build-test-design DESIGN=picorv32_top \
+ YOSYS_PATH=/home/zyzhao/.fabulous/yosys-0.68/bin/yosys \
+ YOSYS_EXTRA_ARGS="-l $PICORV_LOG_DIR/yosys.log" \

@@ -1,0 +1,7 @@
+read_verilog /home/zyzhao/FABulous/zgl-64x64_async/Fabric/models_pack.v
+read_verilog /home/zyzhao/FABulous/zgl-64x64_async/Tile/LUT4AB/LUT4c_frame_config_dffesr.v
+hierarchy -check -top LUT4c_frame_config_dffesr
+proc
+opt
+stat
+write_json /tmp/async_bel_inference.json

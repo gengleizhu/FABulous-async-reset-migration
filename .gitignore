@@ -1,0 +1,6 @@
+__pycache__/
+*.vvp
+*.bin
+*.hex
+*.log
+codex_*key*

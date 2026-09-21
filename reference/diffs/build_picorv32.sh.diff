@@ -1,0 +1,15 @@
+--- /home/zyzhao/FABulous/zgl-64x64_async/change_records/async-reset-v2-20260920/original/Test/build_picorv32.sh	2026-09-08 19:42:13.599741000 +0900
++++ /home/zyzhao/FABulous/zgl-64x64_async/Test/build_picorv32.sh	2026-09-20 15:37:17.504688109 +0900
+@@ -3,10 +3,10 @@
+ export PATH=/nix/store/9ysyys63a84rasqkdzdsjjha1fyr9ads-FABulous-env/bin:/home/zyzhao/miniforge3/envs/fabulous/bin:/usr/bin:/bin
+ export PYTHONPATH=/home/zyzhao/FABulous
+ unset LD_LIBRARY_PATH PYTHONHOME
+-cd /home/zyzhao/FABulous/zgl-64x64/Test
++cd /home/zyzhao/FABulous/zgl-64x64_async/Test
+ export PICORV_LOG_DIR="logs/picorv32/run-$(date +%Y%m%d-%H%M%S)"
+ mkdir -p "$PICORV_LOG_DIR"
+-SYNTH_ARGS='-extra-plib yosys-0.68-maps/prims.v -cells-map yosys-0.68-maps/cells_map.v -extra-map yosys-0.68-maps/ff_map.v -extra-map yosys-0.68-maps/io_map.v -extra-mlibmap yosys-0.68-maps/ram_regfile.txt -extra-map yosys-0.68-maps/regfile_map.v -ff \$_DFF_P_ 0 -multiplier-map yosys-0.68-maps/mul_map.v 8 8 1 1 1'
++SYNTH_ARGS='-extra-plib yosys-0.68-maps/prims.v -cells-map yosys-0.68-maps/cells_map.v -extra-map yosys-0.68-maps/ff_map.v -extra-map yosys-0.68-maps/io_map.v -extra-mlibmap yosys-0.68-maps/ram_regfile.txt -extra-map yosys-0.68-maps/regfile_map.v -ff \$_DFF_P_ 0 -ff \$_DFFE_PP_ 0 -ff \$_SDFF_PP0_ 0 -ff \$_SDFF_PP1_ 0 -ff \$_SDFFCE_PP0P_ 0 -ff \$_SDFFCE_PP1P_ 0 -ff \$_DFF_PP0_ 0 -ff \$_DFF_PP1_ 0 -ff \$_DFFE_PP0P_ 0 -ff \$_DFFE_PP1P_ 0 -multiplier-map yosys-0.68-maps/mul_map.v 8 8 1 1 1'
+ task build-test-design DESIGN=picorv32_top \
+ YOSYS_PATH=/home/zyzhao/.fabulous/yosys-0.68/bin/yosys \
+ YOSYS_EXTRA_ARGS="-l $PICORV_LOG_DIR/yosys.log" \

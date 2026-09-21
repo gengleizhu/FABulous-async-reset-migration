@@ -1,0 +1,55 @@
+--- /home/zyzhao/FABulous/zgl-64x64_async/change_records/async-reset-v2-20260920/original/Test/yosys-0.68-maps/prims.v	2026-06-29 14:28:53.000000000 +0900
++++ /home/zyzhao/FABulous/zgl-64x64_async/Test/yosys-0.68-maps/prims.v	2026-09-20 15:37:17.344680592 +0900
+@@ -484,4 +484,52 @@
+         O <= D;
+     end
+ endmodule
++
++module LUTFF_AR (
++  output reg O,
++  input CLK, R, D
++);
++  initial O = 1'b0;
++  always @(posedge CLK or posedge R)
++    if (R)
++      O <= 1'b0;
++    else
++      O <= D;
++endmodule
++
++module LUTFF_AS (
++  output reg O,
++  input CLK, S, D
++);
++  initial O = 1'b0;
++  always @(posedge CLK or posedge S)
++    if (S)
++      O <= 1'b1;
++    else
++      O <= D;
++endmodule
++
++module LUTFF_EAR (
++  output reg O,
++  input CLK, E, R, D
++);
++  initial O = 1'b0;
++  always @(posedge CLK or posedge R)
++    if (R)
++      O <= 1'b0;
++    else if (E)
++      O <= D;
++endmodule
++
++module LUTFF_EAS (
++  output reg O,
++  input CLK, E, S, D
++);
++  initial O = 1'b0;
++  always @(posedge CLK or posedge S)
++    if (S)
++      O <= 1'b1;
++    else if (E)
++      O <= D;
++endmodule
+ `endif // COMPLEX_DFF

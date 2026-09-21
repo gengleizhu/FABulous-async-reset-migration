@@ -1,0 +1,12 @@
+read_verilog -lib -D COMPLEX_DFF /home/zyzhao/FABulous/zgl-64x64_async/Test/yosys-0.68-maps/prims.v
+read_verilog /tmp/async_reset_map_smoke.v
+hierarchy -check -top async_reset_map_smoke
+proc
+opt
+techmap
+opt
+dfflegalize -cell $_DFF_P_ 0 -cell $_DFFE_PP_ 0 -cell $_SDFF_PP0_ 0 -cell $_SDFF_PP1_ 0 -cell $_SDFFCE_PP0P_ 0 -cell $_SDFFCE_PP1P_ 0 -cell $_DFF_PP0_ 0 -cell $_DFF_PP1_ 0 -cell $_DFFE_PP0P_ 0 -cell $_DFFE_PP1P_ 0
+techmap -map /home/zyzhao/FABulous/zgl-64x64_async/Test/yosys-0.68-maps/ff_map.v
+opt_clean
+stat
+write_json /tmp/async_reset_map_smoke.json
